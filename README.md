@@ -2,7 +2,7 @@
 
  Implementações de problemas de otimização utilizando diferentes técnicas
  estudadas durante a disciplina de Modelagem e Otimização de Algoritmos com
- o prof. Igor da Penha Natal.
+ o Prof. Igor da Penha Natal.
 
  Contribuidores:
  - Felipe Scheffel - RA117306

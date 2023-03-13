@@ -1,6 +1,23 @@
 import random
 from typing import List, Tuple
 
+"""
+Implementação da técnica de busca tabu para o problema da mochila.
+
+Desenvolvido para a disciplina de MOA com o Prof Igor da Penha Natal
+Contribuintes:
+    Felipe Scheffel - RA117306
+    Douglas Kenji Sakakibara - RA117741
+    Leandro Eiki Iriguchi - RA120120
+
+O problema da mochila, ou "Knapsack problem" em inglês, é um problema clássico da
+área de otimização combinatória. Consiste em encontrar a melhor combinação de objetos
+a serem colocados em uma mochila com capacidade limitada, de forma que se maximize o
+valor total dos objetos. Cada objeto possui um peso e um valor, e a capacidade da
+mochila é limitada. O objetivo é encontrar a combinação de objetos que maximize o valor
+total, respeitando a capacidade máxima da mochila.
+"""
+
 def log(string: str):
     """Função útil para habilitar ou desabilitar impressão no console
 
