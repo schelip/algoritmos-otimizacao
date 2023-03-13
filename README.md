@@ -10,4 +10,5 @@
  - Leandro Eiki Iriguchi - RA120120
 
  ## Técnicas implementadas e problemas de exemplo:
- [X] Busca tabu - Problema da mochila
+ * [X] Busca tabu - Problema da mochila
+ * [ ] Algoritmo Genético - ?
