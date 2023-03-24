@@ -11,4 +11,4 @@
 
  ## Técnicas implementadas e problemas de exemplo:
  * [X] Busca tabu - Problema da mochila
- * [ ] Algoritmo Genético - ?
+ * [X] Algoritmo Genético - Corte de Estoque 2D
