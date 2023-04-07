@@ -10,5 +10,13 @@
  - Leandro Eiki Iriguchi - RA120120
 
  ## Técnicas implementadas e problemas de exemplo:
- * [X] Busca tabu - Problema da mochila
- * [X] Algoritmo Genético - Corte de Estoque 2D
+ * Busca tabu
+    * [X] Problema da mochila
+ * Algoritmo Genético
+    * [X] Corte de Estoque 2D
+    * [ ] Caixeiro viajante
+ * Ant System
+    * [X] Coloração de grafos
+    * [ ] Caixeiro viajante
+ * Simulated Annealing
+    * [ ] Caixeiro viajante
