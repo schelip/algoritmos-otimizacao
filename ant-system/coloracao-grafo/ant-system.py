@@ -3,15 +3,18 @@ import networkx as nx
 import matplotlib.pyplot as plt
 import os
 from typing import List, Tuple
+import time
 
 # Parâmetros do Ant System
 NUM_FORMIGAS = 10
-NUM_ITERACOES = 100
+NUM_ITERACOES = 15
 TAXA_EVAPORACAO = 0.5 # taxa de evaporação do feromônio
-FEROMONIO_INICIAL = 1.0 # quantidade inicial de feromônio em todas as arestas
+FEROMONIO_INICIAL = 0.1 # quantidade inicial de feromônio em todas as arestas
+PESO_SATURACAO = 0.5 # peso heurística
 
-NOME_ARQUIVO = 'grafo.txt'
-NUM_VERTICES_GERACAO = 15
+NOME_ARQUIVO = 'grafo_15.txt'
+NUM_VERTICES_GERACAO = 100
+P_ARESTAS_GERACAO = 0.3
 
 def main():
     carregar_configuracao = input("Deseja carregar uma configuração existente? (S/N): ").lower() == "s"
@@ -22,19 +25,21 @@ def main():
 
     if carregar_configuracao:
         print(f"Carregando configuração existente em {NOME_ARQUIVO}")
-        with open('grafo.txt', 'r') as arquivo:
+        with open(NOME_ARQUIVO, 'r') as arquivo:
             lista_adjacencia = [[int(vertice) for vertice in linha.split()] for linha in arquivo]
     else:
         print(f"Gerando pecas aleatórias e salvando em {NOME_ARQUIVO}")
         lista_adjacencia = []
-        with open('grafo.txt', 'w') as arquivo:
-            for i in range(NUM_VERTICES_GERACAO):
+        with open(NOME_ARQUIVO, 'w') as arquivo:
+            G = nx.binomial_graph(NUM_VERTICES_GERACAO, P_ARESTAS_GERACAO)
+            matriz_grafo = nx.to_numpy_array(G).tolist()
+            for i, v in enumerate(matriz_grafo):
                 lista_adjacencia.append([])
-                for j in range(NUM_VERTICES_GERACAO):
-                    if (random.random() <= 0.3):
+                for j, a in enumerate(v):
+                    if j != i and a == 1:
+                        arquivo.write(f"{int(j)} ")
                         lista_adjacencia[i].append(j)
-                        arquivo.write(f'{j} ')
-                arquivo.write('\n')
+                arquivo.write("\n")
 
     num_vertices = len(lista_adjacencia)
     matriz_adjacencia = [[False] * num_vertices for _ in range(num_vertices)]
@@ -43,18 +48,21 @@ def main():
             matriz_adjacencia[i][j] = True
         
     print("Iniciando ...")
+    start_time = time.time()
     melhor_solucao, custo_melhor_solucao = ant_system(matriz_adjacencia)
+    print(f"Tempo execução: {time.time() - start_time}")
+    
     print(f"Melhor solução: {melhor_solucao}")
-    print(f"Cores melhor solução: {custo_melhor_solucao} - list(set(melhor_solucao))")
+    print(f"Cores melhor solução: {custo_melhor_solucao} - {list(set(melhor_solucao))}")
     plotar_grafo_colorido(melhor_solucao, matriz_adjacencia)
 
-def plotar_grafo_colorido(vertices: List[int], matriz_adjacencia: List[List[int]]):
+def plotar_grafo_colorido(vertices: List[int], matriz_adjacencia: List[List[bool]]):
     """
     Plota um grafo colorido com base em uma lista de cores e uma matriz de adjacência.
 
     Args:
     - vertices (List[int]): Uma lista de inteiros representando cada nó do grafo. Cada inteiro deve estar entre 0 e 9.
-    - matriz_adjacencia (List[List[int]]): Uma matriz de adjacência representando as conexões entre os nós do grafo.
+    - matriz_adjacencia (List[List[bool]]): Uma matriz de adjacência representando as conexões entre os nós do grafo.
     """
     G = nx.Graph()
 
@@ -73,57 +81,66 @@ def plotar_grafo_colorido(vertices: List[int], matriz_adjacencia: List[List[int]
     pos = nx.spring_layout(G)
     nx.draw_networkx_nodes(G, pos, node_color=node_colors)
     nx.draw_networkx_edges(G, pos)
+    nx.draw_networkx_labels(G, pos)
     plt.show()
 
-
-def escolher_cor(vertice: int, cores: List[str], feromonios: List[List[float]], matriz_adjacencia: List[List[int]]) -> int:
-    """
-    Escolhe uma cor para um vértice de acordo com as cores disponíveis e os feromônios presentes na matriz.
+def escolher_proximo(vertice_atual: int,
+                     cor: int,
+                     solucao_parcial: List[int],
+                     feromonios: List[List[int]],
+                     matriz_adjacencia: List[List[bool]]):
+    """Move a formiga para um próximo vértice disponível para ser pintado com uma
+    cor, com base na heurística (saturação) e nos feromonios
 
     Args:
-        vertice (int): índice do vértice que se deseja escolher uma cor.
-        cores (List[str]): lista de cores disponíveis para a escolha.
-        feromonios (List[List[float]]): matriz de feromônios em cada vértice para cada cor disponível.
-        matriz_adjacencia (List[List[int]]): matriz de adjacência do grafo.
+        vertice_atual (int): posição atual da formiga
+        cor (int): cor para pintura do vértice
+        solucao_parcial (List[int]): cores atuais dos vértices do grafo
+        feromonios (List[List[int]]): feromonios entre cada par de vértices do grafo
+        matriz_adjacencia (List[List[bool]]): Matriz de adjacência do grafo.
 
     Returns:
-        int: cor escolhida para o vértice.
+        int: Vértice para o qual a formiga escolheu ir
     """
-    cores_disponiveis = [c for c in cores if c not in matriz_adjacencia[vertice]]
-    if len(cores_disponiveis) == 0:
-        return random.choice(cores)
-    valores_feromonio = [feromonios[vertice][c] for c in range(len(cores)) if cores[c] in cores_disponiveis]
-    total_feromonio = sum(valores_feromonio)
-    probabilidades = [feromonio / total_feromonio for feromonio in valores_feromonio]
-    indice_escolhido = random.choices(range(len(cores_disponiveis)), probabilidades)[0]
-    cor_escolhida = cores_disponiveis[indice_escolhido]
-    return cor_escolhida
+    possiveis = [i for i, v in enumerate(solucao_parcial)
+                 if v == -1 and
+                 not any([adj and solucao_parcial[j] == cor
+                          for j, adj in enumerate(matriz_adjacencia[i])
+                          if adj])]
+    saturacoes = [len([adj for adj in matriz_adjacencia[v] if adj]) for v in possiveis]
 
-def calcular_custo(solucao: List[int], matriz_adjacencia: List[List[int]]) -> Tuple[int, int]:
-    """
-    Calcula o custo de uma solução para o problema de coloração de grafos.
-    
+    if len(possiveis) == 0:
+        return None
+
+    probabilidades = [((1 / saturacoes[i]) ** PESO_SATURACAO) * feromonios[vertice_atual][i]
+                        for i in range(len(possiveis))]
+    soma = sum(probabilidades)
+
+    return random.choices(possiveis, [p / soma for p in probabilidades])[0]
+
+def atualizar_feromonios(feromonios: List[List[float]],
+                         delta_feromonios) -> List[List[float]]:
+    """Aplica evaporação e adicona os feromonios depositados pelas formigas
+
     Args:
-        solucao (List[int]): lista de inteiros representando as cores utilizadas para cada vértice do grafo.
-        matriz_adjacencia (List[List[int]]): matriz de adjacência representando as conexões entre os vértices do grafo.
+        feromonios (List[List[float]]): Matriz dos feromônios atuais
+        delta_feromonios (List[List[float]]): Feromonios depositados pelas formigas
 
     Returns:
-        Tuple[int, int]: Uma tupla contendo o número de conflitos na solução e o número de cores utilizadas.
+        List[List[float]]: Nova matriz de feromônios
     """
-    num_vertices = len(solucao)
-    num_cores = len(set(solucao))
-    
-    num_conflitos = sum([1 for i in range(num_vertices) 
-                         for j in range(i + 1, num_vertices)
-                         if matriz_adjacencia[i][j] and solucao[i] == solucao[j]])
-    
-    return num_conflitos, num_cores
+    num_vertices = len(feromonios)
+    for i in range(num_vertices):
+        for j in range(i + 1, num_vertices):
+            feromonios[i][j] = (1.0 - TAXA_EVAPORACAO) * feromonios[i][j] + delta_feromonios[i][j]
+            feromonios[j][i] = feromonios[i][j]
+    return feromonios
 
-def ant_system(matriz_adjacencia: List[List[int]]) -> Tuple[List[int], int]:
+def ant_system(matriz_adjacencia: List[List[bool]]) -> Tuple[List[int], int]:
     """Executa o algoritmo do Ant System para coloração de grafos.
     
     Args:
-        lista_adjacencia (List[List[int]]): Lista de adjacência do grafo.
+        matriz_adjacencia (List[List[bool]]): Matriz de adjacência do grafo.
 
     Returns:
         Tuple[List[int], int]: Tupla contendo a melhor solução encontrada e o número de cores utilizadas.
@@ -134,50 +151,45 @@ def ant_system(matriz_adjacencia: List[List[int]]) -> Tuple[List[int], int]:
 
     melhor_solucao = [-1] * num_vertices
     custo_melhor_solucao = float('inf')
-    num_cores_melhor_solucao = float('inf')
 
-    for i in range(NUM_ITERACOES):
-        # Inicializar as soluções parciais das formigas
+    for it in range(NUM_ITERACOES):
         solucoes = [[-1] * num_vertices for _ in range(NUM_FORMIGAS)]
         custos = [float('inf') for _ in range(NUM_FORMIGAS)]
-        lista_num_cores = [float('inf') for _ in range(NUM_FORMIGAS)]
+        delta_feromonios = [[0 for _ in range(num_vertices)] for _ in range(num_vertices)]
         
-        # Para cada formiga, construir uma solução parcial
         for formiga in range(NUM_FORMIGAS):
-            # Inicializar a solução parcial com uma cor aleatória para o primeiro vértice
-            cores = list(range(num_vertices))
-            random.shuffle(cores)
-            solucoes[formiga][0] = cores[0]
+            cor = 0
+            vertice_atual = random.randint(0, num_vertices - 1)
+            solucoes[formiga][vertice_atual] = cor
+            visitados = [vertice_atual]
             
-            # Escolher as cores para os vértices restantes com base na regra de escolha de cor
-            for i in range(1, num_vertices):
-                vertice = i
-                cor_escolhida = escolher_cor(vertice, cores, feromonios, matriz_adjacencia)
-                solucoes[formiga][vertice] = cor_escolhida
-            
-            # Avaliar a qualidade da solução parcial e atualizar a melhor solução encontrada
-            custo, num_cores = calcular_custo(solucoes[formiga], matriz_adjacencia)
-            custos[formiga] = custo
-            lista_num_cores[formiga] = num_cores
-            if custo < custo_melhor_solucao or (custo == custo_melhor_solucao and num_cores < num_cores_melhor_solucao):
-                melhor_solucao = solucoes[formiga]
-                custo_melhor_solucao = custo
-                num_cores_melhor_solucao = num_cores
-        
-        # Atualizar a trilha de feromônio com base nas melhores soluções encontradas
-        for i in range(num_vertices):
-            for j in range(i + 1, num_vertices):
-                delta_feronomio = sum([1.0 / custo if custo != 0 else 0 / num_colors
-                                       for custo, num_colors, solution in zip(custos, lista_num_cores, solucoes)
-                                       if solution[i] == solution[j]])
-                feromonios[i][j] = (1.0 - TAXA_EVAPORACAO) * feromonios[i][j] + delta_feronomio / num_cores_melhor_solucao
-                feromonios[j][i] = feromonios[i][j]
-        
-        # Imprimir o progresso a cada 10 iterações
-        if i % 10 == 0:
-            print(f"Iteração {i}: Custo melhor solução = {custo_melhor_solucao}; Cores melhor solução = {num_cores_melhor_solucao}")
+            while len(visitados) < num_vertices:
+                proximo_vertice = escolher_proximo(vertice_atual, cor, solucoes[formiga], feromonios, matriz_adjacencia)
+                if proximo_vertice is not None:
+                    visitados.append(proximo_vertice)
+                    solucoes[formiga][proximo_vertice] = cor
+                    
+                    vertice_atual = proximo_vertice
+                else:
+                    cor += 1
 
-    return melhor_solucao, num_cores_melhor_solucao
+            custos[formiga] = cor + 1
+
+            delta_feromonio = 1 / float(custos[formiga])
+            caminho = zip(visitados[:-1], visitados[1:])
+            for i, j in caminho:
+                delta_feromonios[i][j] += delta_feromonio
+                delta_feromonios[j][i] = delta_feromonios[i][j]
+            
+            if custos[formiga] < custo_melhor_solucao:
+                melhor_solucao = solucoes[formiga][:]
+                custo_melhor_solucao = custos[formiga]
+        
+        feromonios = atualizar_feromonios(feromonios, delta_feromonios)
+        
+        print(f"Iteração {it}: Custo melhor solução = {custo_melhor_solucao};")
+
+    return melhor_solucao, custo_melhor_solucao
 
 if __name__ == '__main__':
     main()
